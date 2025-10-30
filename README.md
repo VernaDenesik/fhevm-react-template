@@ -67,15 +67,36 @@ fhevm-react-template/
 │       │   ├── decrypt.ts      # Decryption functions
 │       │   ├── eip712.ts       # EIP-712 signature utilities
 │       │   ├── types.ts        # TypeScript type definitions
-│       │   └── utils.ts        # Helper utilities
+│       │   ├── utils.ts        # Helper utilities
+│       │   ├── hooks/          # React hooks
+│       │   │   └── useFhevm.ts # React hook for FHEVM
+│       │   └── adapters/       # Framework adapters
+│       │       ├── react.ts    # React adapter
+│       │       └── vue.ts      # Vue adapter
 │       └── README.md           # SDK documentation
+│
+├── templates/                  # Starter templates for different frameworks
+│   ├── nextjs/                 # → points to examples/nextjs-example
+│   ├── vue/                    # → points to examples/vue-example
+│   ├── react/                  # → React template (similar to Next.js)
+│   └── nodejs/                 # → points to examples/node-example
 │
 ├── examples/
 │   ├── nextjs-example/         # Next.js application (REQUIRED)
 │   │   ├── src/
 │   │   │   ├── app/            # Next.js app directory
+│   │   │   │   ├── api/        # API routes for FHE operations
+│   │   │   │   ├── layout.tsx  # Root layout
+│   │   │   │   └── page.tsx    # Home page
 │   │   │   ├── components/     # React components
-│   │   │   └── hooks/          # Custom React hooks
+│   │   │   │   ├── ui/         # UI components (Button, Input, Card)
+│   │   │   │   ├── fhe/        # FHE components (Provider, demos)
+│   │   │   │   └── examples/   # Use case examples
+│   │   │   ├── lib/            # Utility libraries
+│   │   │   │   ├── fhe/        # FHE integration utilities
+│   │   │   │   └── utils/      # Helper functions
+│   │   │   ├── hooks/          # Custom React hooks
+│   │   │   └── types/          # TypeScript types
 │   │   └── README.md
 │   │
 │   ├── vue-example/            # Vue.js application
@@ -88,11 +109,25 @@ fhevm-react-template/
 │   │   ├── index.js            # Main Node.js script
 │   │   └── README.md
 │   │
-│   └── dao-voting-example/     # Example dApp (imported)
-│       ├── contracts/          # Smart contracts
+│   ├── dao-voting-example/     # DAO contracts example
+│   │   ├── contracts/          # Smart contracts
+│   │   └── README.md
+│   │
+│   └── SecureDAOVoting-main/   # DAO Voting React App (converted from static HTML)
+│       ├── src/
+│       │   ├── components/     # React components
+│       │   ├── hooks/          # Custom hooks (useWallet, useContract)
+│       │   ├── styles/         # CSS styles
+│       │   ├── App.jsx         # Main application
+│       │   └── main.jsx        # Entry point
+│       ├── index.html          # Static HTML version
+│       ├── index-react.html    # React version entry
 │       └── README.md
 │
 ├── docs/                       # Additional documentation
+│   ├── API.md                  # API reference
+│   ├── EXAMPLES.md             # Usage examples
+│   └── SETUP.md                # Setup guide
 ├── demo.mp4                    # Video demonstration
 ├── package.json                # Root package.json
 └── README.md                   # This file
@@ -176,6 +211,24 @@ npm run compile
 
 [View DAO Example →](./examples/dao-voting-example)
 
+### SecureDAO Voting React App
+
+Full-featured DAO voting application converted to React with FHEVM SDK integration:
+
+```bash
+cd examples/SecureDAOVoting-main
+npm install
+npm run dev
+```
+
+Features:
+- Commit-reveal voting mechanism
+- React hooks for wallet and contract management
+- FHEVM SDK integration
+- Full DAO governance workflow
+
+[View SecureDAO Voting →](./examples/SecureDAOVoting-main)
+
 ## SDK Documentation
 
 ### Core API
@@ -245,61 +298,85 @@ import {
 
 ### React / Next.js
 
-Create a custom hook:
+Use the built-in React hook:
 
 ```typescript
-import { useState, useEffect } from 'react';
-import { FhevmClient } from 'fhevm-sdk';
+import { useFhevm } from 'fhevm-sdk';
+import { ethers } from 'ethers';
 
-export function useFhevm(contractAddress: string) {
-  const [client, setClient] = useState<FhevmClient>();
+function MyComponent() {
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const [signer, setSigner] = useState(null);
 
   useEffect(() => {
-    async function init() {
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+    provider.getSigner().then(setSigner);
+  }, []);
 
-      const fhevmClient = new FhevmClient({
-        provider,
-        signer,
-        contractAddress
-      });
+  const { client, isInitialized, encrypt, userDecrypt } = useFhevm({
+    provider,
+    signer,
+    contractAddress: '0x...',
+    autoInit: true
+  });
 
-      await fhevmClient.init();
-      setClient(fhevmClient);
-    }
+  // Use encrypt and userDecrypt functions
+  const handleEncrypt = async () => {
+    const encrypted = await encrypt({
+      contractAddress: '0x...',
+      callerAddress: await signer.getAddress(),
+      value: { amount: 100 }
+    });
+    // Use encrypted data with contract
+  };
 
-    init();
-  }, [contractAddress]);
-
-  return { client };
+  return <div>{isInitialized ? 'Ready' : 'Loading...'}</div>;
 }
+```
+
+Or use the React adapter:
+
+```typescript
+import { useFhevm } from 'fhevm-sdk/adapters/react';
+// Same usage as above
 ```
 
 ### Vue.js
 
-Use in Vue components:
+Use the built-in Vue composable:
 
 ```vue
 <script setup>
+import { useFhevm } from 'fhevm-sdk/adapters/vue';
+import { ethers } from 'ethers';
 import { ref, onMounted } from 'vue';
-import { FhevmClient } from 'fhevm-sdk';
 
-const client = ref(null);
+const provider = new ethers.BrowserProvider(window.ethereum);
+const signer = ref(null);
 
 onMounted(async () => {
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-
-  client.value = new FhevmClient({
-    provider,
-    signer,
-    contractAddress: '0x...'
-  });
-
-  await client.value.init();
+  signer.value = await provider.getSigner();
 });
+
+const { client, isInitialized, encrypt, userDecrypt } = useFhevm({
+  provider,
+  signer,
+  contractAddress: '0x...',
+  autoInit: true
+});
+
+// Use encrypt and userDecrypt functions
+const handleEncrypt = async () => {
+  const encrypted = await encrypt({
+    contractAddress: '0x...',
+    callerAddress: await signer.value.getAddress(),
+    value: { amount: 100 }
+  });
+};
 </script>
+
+<template>
+  <div>{{ isInitialized ? 'Ready' : 'Loading...' }}</div>
+</template>
 ```
 
 ### Node.js

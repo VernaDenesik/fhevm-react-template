@@ -12,3 +12,6 @@ export { userDecrypt, publicDecrypt } from './decrypt';
 export { generateEIP712Signature } from './eip712';
 export * from './types';
 export * from './utils';
+
+// React hooks (requires React to be installed)
+export { useFhevm } from './hooks/useFhevm';
